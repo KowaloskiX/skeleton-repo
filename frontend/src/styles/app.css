@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* Theme switching via a class on <html> — not prefers-color-scheme alone. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* One place to reskin the whole skeleton: change these values, not the components. */
+:root {
+  --bg: #f2f5f7;
+  --surface: #ffffff;
+  --surface-sunken: #e9eef2;
+  --ink: #0f1419;
+  --muted: #5a6672;
+  --line: #d6dde3;
+  --accent: #a8480b;
+  --accent-ink: #ffffff;
+  --live: #0b6e7a;
+  --danger: #a3231f;
+}
+
+.dark {
+  --bg: #0e1216;
+  --surface: #151b21;
+  --surface-sunken: #10151a;
+  --ink: #e7edf3;
+  --muted: #94a3b0;
+  --line: #232c34;
+  --accent: #e89445;
+  --accent-ink: #17110a;
+  --live: #45b8c6;
+  --danger: #f08d84;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-live: var(--live);
+  --color-danger: var(--danger);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+
+  --radius-control: 6px;
+  --radius-panel: 10px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Cascading entrance for the readout rows — the only animation on the page. */
+@keyframes readout-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.readout-row {
+  animation: readout-in 320ms ease-out both;
+  animation-delay: calc(var(--row-index, 0) * 45ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readout-row {
+    animation: none;
+  }
+}
+
+/* Indeterminate progress for a route transition: we do not know how long it will take, so the
+   bar travels rather than fills. */
+@keyframes route-pending-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.route-pending-bar {
+  animation: route-pending-slide 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-pending-bar {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}

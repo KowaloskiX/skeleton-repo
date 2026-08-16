@@ -1,0 +1,58 @@
+[project]
+name = "app"
+version = "0.0.0"
+description = "Skeleton backend (FastAPI)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic[email]>=2.9",
+    "pydantic-settings>=2.6",
+    "pwdlib[argon2]>=0.3.0",
+    "limits[async-redis]>=5.8.0",
+    "beanie>=2.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "import-linter>=2.1",
+    "testcontainers[mongodb,redis]>=4.15.0",
+    "pytest-cov>=7.1.0",
+]
+
+[project.scripts]
+dump-openapi = "scripts.dump_openapi:main"
+ensure-indexes = "scripts.ensure_indexes:main"
+strict-queries = "scripts.strict_queries:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app", "scripts"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+files = ["src", "tests", "scripts"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+pythonpath = ["src"]
+testpaths = ["tests"]

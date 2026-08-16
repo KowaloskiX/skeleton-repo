@@ -1,0 +1,26 @@
+# Tool versions in one place. `mise install` sets up exactly what CI uses.
+#
+# mise is OPTIONAL — the manual path from the README (nvm + corepack + uv) still works. The
+# point of this file is closing version drift: without it Python had only a floor
+# (`requires-python = ">=3.12"`), and the uv version was pinned NOWHERE, so your local one,
+# CI's and the Dockerfile's could be three different versions.
+#
+# Activation (once, in ~/.zshrc) so versions switch automatically:
+#   eval "$(mise activate zsh)"
+# Without activation, use `mise exec -- <command>` or `mise x -- <command>`.
+
+[tools]
+# Node: the same version as `.nvmrc`, which CI uses (`node-version-file: .nvmrc`).
+# `scripts/doctor.sh` checks that both files agree — two sources of truth without a check
+# drift apart within a week.
+node = "24"
+
+# Python: `pyproject.toml` only gives a `>=3.12` floor, while CI pins exactly 3.12.
+# The same pin lives here so nobody drifts onto 3.13 locally with different behaviour.
+python = "3.12"
+
+# uv: the same version as in `backend/Dockerfile`.
+uv = "0.9.11"
+
+# pnpm is deliberately NOT here. `packageManager` in package.json pins it and corepack
+# enforces it — a second mechanism would only shadow the corepack shim.

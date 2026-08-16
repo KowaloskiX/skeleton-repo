@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (TS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint # biome ci: lint + format + import order (whole repo)
+      - run: pnpm typecheck
+      - run: pnpm boundaries # dependency-cruiser (module boundaries)
+      - run: pnpm test # vitest + Testing Library + MSW
+      - run: pnpm build
+      - name: routeTree.gen.ts matches routes/
+        run: git diff --exit-code -- frontend/src/routeTree.gen.ts
+      - name: OpenAPI client matches the schema
+        run: |
+          pnpm --filter web generate:api
+          git diff --exit-code -- frontend/src/lib/api/generated
+
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.12"
+          working-directory: backend
+      - run: uv sync --frozen
+      - run: uv run ruff check src tests scripts
+      - run: uv run ruff format --check src tests scripts
+      - run: uv run mypy
+      - run: uv run lint-imports # import-linter (layer boundaries)
+      # testcontainers starts mongodb-atlas-local (a single-node replica set — required for
+      # transactions) plus redis for the shared rate-limit counter tests. The Mongo image weighs
+      # ~650 MB, so the first pull in a job takes tens of seconds.
+      - run: uv run pytest
+      - name: openapi.json matches the routers
+        run: |
+          uv run dump-openapi
+          git diff --exit-code -- openapi.json
+
+  security:
+    name: Dependency security
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.12"
+          working-directory: backend
+      - run: pnpm install --frozen-lockfile
+      # A separate job, because this is the only gate that depends on an EXTERNAL advisory
+      # database: it can turn red without a single change in the repo. Splitting it out keeps
+      # "you broke the code" distinguishable from "a new vulnerability was published".
+      - name: JS dependency vulnerabilities
+        run: pnpm audit --audit-level=high
+      - run: uv sync --frozen
+        working-directory: backend
+      - name: Python dependency vulnerabilities
+        # `--skip-editable` skips the application package itself (no advisory covers it).
+        run: uv run --with pip-audit pip-audit --skip-editable
+        working-directory: backend
+
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        # Ten sam obraz co docker-compose i testy: replica set (transakcje) + Atlas Search.
+        image: mongodb/mongodb-atlas-local:8.2
+        env:
+          MONGODB_INITDB_ROOT_USERNAME: app
+          MONGODB_INITDB_ROOT_PASSWORD: app
+        ports: ["27018:27017"]
+        options: >-
+          --health-cmd "mongosh -u app -p app --quiet --eval 'db.adminCommand({ping:1}).ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+      redis:
+        # The same shared rate-limit counter as locally and in production — without it CI would
+        # exercise a different code path (process memory) than the target environments.
+        image: redis:8-alpine
+        ports: ["6380:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      MONGODB_URL: mongodb://app:app@localhost:27018/?directConnection=true
+      MONGODB_DATABASE: app
+      RATE_LIMIT_STORAGE_URL: redis://localhost:6380
+      AUTH_SECRET: ci-secret-not-used-anywhere-else
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          python-version: "3.12"
+          working-directory: backend
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      # Playwright sam podnosi backend i front — patrz playwright.config.ts.
+      # Indexes are created at application startup (APP_ENV=dev), so there is no separate
+      # migration step.
+      - run: pnpm --filter web test:e2e
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7

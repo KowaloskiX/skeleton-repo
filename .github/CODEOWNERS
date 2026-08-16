@@ -1,0 +1,9 @@
+# Default owner for the whole repository.
+* @KowaloskiX
+
+# Architecture boundaries and conventions — changes require deliberate approval.
+/CLAUDE.md @KowaloskiX
+/docs/conventions/ @KowaloskiX
+/backend/.importlinter @KowaloskiX
+/frontend/.dependency-cruiser.cjs @KowaloskiX
+/.github/ @KowaloskiX

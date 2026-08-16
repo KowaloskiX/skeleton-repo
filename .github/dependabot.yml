@@ -1,0 +1,53 @@
+version: 2
+
+# Dependency updates as pull requests rather than as "we will get to it someday".
+#
+# Weekly and grouped: a separate PR per patch is noise that stops being read, and unread
+# security PRs are worse than none. The exception is **security** updates — Dependabot ships
+# those separately and immediately, regardless of `schedule`.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Development tooling does not touch production code — one PR a week is enough.
+      dev-tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+      # Runtime separately and patches only: a minor in TanStack can change router behaviour.
+      runtime-patches:
+        dependency-type: production
+        update-types: [patch]
+    commit-message:
+      # The `commit-msg` hook requires a Conventional Commits type — Dependabot will not add
+      # one on its own.
+      prefix: chore
+
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-patches:
+        update-types: [patch]
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Actions are pinned to SHAs (see .github/workflows/ci.yml) — without this channel a pin
+    # stays forever on the version it was created with, vulnerabilities included.
+    commit-message:
+      prefix: chore
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore

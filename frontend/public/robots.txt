@@ -1,0 +1,6 @@
+# The skeleton has no public content worth indexing yet, and the app routes are behind auth.
+# Flip this to `Allow: /` together with the landing page copy when the product goes public.
+User-agent: *
+Disallow: /app
+Disallow: /login
+Disallow: /register

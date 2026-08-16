@@ -1,0 +1,21 @@
+# deps / builds
+node_modules/
+dist/
+.turbo/
+# python
+.venv/
+.venv*/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.import_linter_cache/
+# env & secrets
+.env
+.env.*
+!.env.example
+# os / editor
+.DS_Store
+playwright-report/
+test-results/

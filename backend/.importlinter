@@ -1,0 +1,87 @@
+[importlinter]
+root_packages =
+    app
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Layers point one way (layer-first structure)
+type = layers
+layers =
+    app.main
+    app.documents
+    app.routes
+    app.schemas
+    app.services
+    app.repositories
+    app.models
+    app.db
+    app.core
+
+[importlinter:contract:routes_go_through_services]
+name = Routes do not bypass the service layer
+type = forbidden
+# DIRECT imports only: reaching a repository through a service is fine, shortcuts are not.
+allow_indirect_imports = True
+source_modules =
+    app.routes
+forbidden_modules =
+    app.repositories
+    app.models
+    app.db.client
+
+[importlinter:contract:services_have_no_http]
+name = The service layer knows nothing about HTTP
+type = forbidden
+source_modules =
+    app.services
+    app.repositories
+    app.core.security
+    app.core.csrf
+forbidden_modules =
+    fastapi
+    starlette
+    app.schemas
+
+[importlinter:contract:schemas_are_contract_only]
+name = API schemas know neither the database nor the logic
+type = forbidden
+source_modules =
+    app.schemas
+forbidden_modules =
+    app.services
+    app.repositories
+    app.models
+    app.db
+    beanie
+    pymongo
+
+[importlinter:contract:domain_agnostic]
+name = The domain must be independent of infrastructure and framework
+type = forbidden
+source_modules =
+    app.core.domain
+forbidden_modules =
+    app.db
+    app.models
+    app.repositories
+    app.services
+    app.routes
+    app.schemas
+    app.core.config
+    app.core.deps
+    app.core.errors_http
+    fastapi
+    starlette
+    beanie
+    pymongo
+    pwdlib
+
+[importlinter:contract:ai_leak_guard]
+name = The domain does not import AI provider SDKs
+type = forbidden
+source_modules =
+    app.core.domain
+forbidden_modules =
+    openai
+    anthropic
+    litellm

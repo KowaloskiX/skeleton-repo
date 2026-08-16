@@ -1,0 +1,65 @@
+# CI parity, locally. Install with: uvx pre-commit install
+# Run across the repo: uvx pre-commit run --all-files
+# Without this, a plain `pre-commit install` wires up only the `pre-commit` hook and the
+# commit-message hook would never run.
+default_install_hook_types: [pre-commit, commit-msg]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      - id: detect-private-key
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  # The doctor script is plain bash (it has to work when nothing is installed yet), so it gets
+  # its own linter too — "everything is linted" has no exceptions.
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.11.0
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.1
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v2.5.6
+    hooks:
+      - id: biome-check
+        additional_dependencies: ["@biomejs/biome@2.5.6"]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy (backend, strict)
+        entry: uv run --directory backend mypy
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+      - id: lint-imports
+        name: import-linter (layer boundaries)
+        entry: uv run --directory backend lint-imports
+        language: system
+        pass_filenames: false
+        files: ^backend/.*\.py$
+      - id: commit-message-format
+        name: commit message format (docs/conventions/04)
+        entry: scripts/check-commit-message.sh
+        language: script
+        # The only commit-msg hook — it receives the path to the message file, not a list of
+        # changed files. Requires: pre-commit install --hook-type commit-msg
+        stages: [commit-msg]

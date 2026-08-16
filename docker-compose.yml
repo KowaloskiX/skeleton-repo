@@ -1,0 +1,75 @@
+services:
+  db:
+    # The Atlas-local image, not plain `mongo`. Three reasons:
+    # 1. It starts as a single-node REPLICA SET, and without a replica set there are no
+    #    multi-document transactions (registration creates a user, an organization, a
+    #    membership and a session atomically).
+    # 2. It ships Atlas Search and $vectorSearch — the same APIs as production Atlas, so the
+    #    embeddings on the AI roadmap can be developed locally rather than only in the cloud.
+    # 3. Parity with production: prod is Atlas, so dev talks to the same engine.
+    # Cost: a ~650 MB image and ~15 s to healthy (plain mongo weighs ~200 MB).
+    image: mongodb/mongodb-atlas-local:8.2
+    # MANDATORY with a persistent volume: a replica set records its member address in
+    # /data/db, and that address is the container hostname. Docker assigns a new hostname on
+    # every re-creation, so without pinning it, `docker compose down && up` leaves mongod
+    # unable to see itself, the topology stuck at ReplicaSetNoPrimary and the container panics.
+    hostname: db
+    environment:
+      MONGODB_INITDB_ROOT_USERNAME: app
+      MONGODB_INITDB_ROOT_PASSWORD: app
+    # Port 27018 on the host, because 27017 is often taken by a locally installed mongod — the
+    # native process then wins over the Docker port and the client quietly talks to another
+    # database.
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodata:/data/db
+      # /data/configdb MUST be persistent alongside /data/db. The entrypoint generates the
+      # replica-set internal-auth keyfile there; without it, after a restart mongod sees a
+      # database with auth enabled, finds no key and dies on "Unable to acquire security key[s]".
+      - mongoconfig:/data/configdb
+    # The image ships its own HEALTHCHECK, so `depends_on: condition: service_healthy` works.
+
+  redis:
+    image: redis:8-alpine
+    # AOF is on deliberately: the same Redis will serve the `arq` queue (emails, embeddings),
+    # and a queue that loses jobs on restart is a footgun. Rate-limit counters are ephemeral
+    # and lose nothing, but we do not want two Redis instances with different durability.
+    command: ["redis-server", "--appendonly", "yes"]
+    # Port 6380 for the same reason as 27018 for Mongo: a locally installed redis-server
+    # occupies 6379 and wins over the Docker port.
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisdata:/data
+    # No password locally. In production the provider URL carries credentials and goes to
+    # secrets.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # A browser GUI without installing anything:
+  #   docker compose --profile tools up -d   ->   http://localhost:8081
+  # A plain `docker compose up -d` does NOT start it.
+  # Desktop alternative: MongoDB Compass on
+  #   mongodb://app:app@localhost:27018/?directConnection=true
+  mongo-express:
+    image: mongo-express:1
+    profiles: ["tools"]
+    environment:
+      # directConnection skips topology discovery — the replica set advertises itself by the
+      # database container name, which other containers and the host need not resolve alike.
+      ME_CONFIG_MONGODB_URL: mongodb://app:app@db:27017/?directConnection=true
+      ME_CONFIG_BASICAUTH: "false"
+    ports:
+      - "8081:8081"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mongodata:
+  mongoconfig:
+  redisdata:
