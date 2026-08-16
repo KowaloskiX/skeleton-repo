@@ -5,7 +5,7 @@ description = "Skeleton backend (FastAPI)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
+    "uvicorn[standard]>=0.52.2",
     "pydantic[email]>=2.9",
     "pydantic-settings>=2.6",
     "pwdlib[argon2]>=0.3.0",
