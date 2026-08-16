@@ -10,7 +10,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "pwdlib[argon2]>=0.3.0",
     "limits[async-redis]>=5.8.0",
-    "beanie>=2.1.0",
+    "beanie>=2.2.0",
 ]
 
 [dependency-groups]
